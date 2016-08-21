@@ -1,0 +1,125 @@
+<html>
+<head>
+	<title>Survey</title>
+	<script src="angular/angular.js" charset="utf-8"></script>
+    <script src="angular-route/angular-route.js" charset="utf-8"></script>
+    <script>
+    var myApp= angular.module('myApp', ['ngRoute']); 
+
+    myApp.config(function($routeProvider){
+    	$routeProvider
+    	.when('/',{
+    		templateUrl:'/partials/login.html'
+    	})
+    	.when('/dashboard', {
+    		templateUrl:'/partials/dashboard.html'
+    	})
+    	.when('/create', {
+    		templateUrl:'/partials/create.html'
+    	})
+    	.when('/poll/:id', {
+    		templateUrl:'/partials/poll.html'
+    	})
+    	.otherwise('/')
+    })
+    //create factories
+    myApp.factory('userFactory', function($http, $location){
+    	var obj= {};
+    	obj.create= function(username){
+    		//expecting json object in my server, so i have to send json object
+    		//success function will be responsible for saving the user object and login user name
+    		var JSONpackage= {username:username}; 
+    		$http.post('/users', JSONpackage).success(function(data){
+    			//save user into obj
+    			obj.loggedInUser= data; 
+    			$location.path('/dashboard'); 
+    		})
+    	} 
+    	return obj; 
+
+    })
+
+    //create controller
+    myApp.controller('userController', function($scope, userFactory){
+    	$scope.create= function(){
+    		userFactory.create($scope.username); 
+    		//clear up the scope
+    		$scope.username='';
+    	}
+    })
+
+    //******************************************//
+    //create factory
+    myApp.factory('surveyFactory', function($http, $location){
+    	var obj={}; 
+    	//index method responsible for getting all of my surveys
+    	obj.index= function(callback){
+    		$http.get('/surveys').success(callback);
+
+    	}
+    	obj.destroy= function(surveyID, callback){
+    		$http.delete('/surveys/' + surveyID).success(callback);
+    	}
+    	obj.create= function(survey){
+    		$http.post('/surveys', survey).success(function(){
+    			$location.path('/dashboard');
+    		})
+
+    	}
+    	obj.show= function(surveyID, callback){
+    		$http.get('/surveys/'+ surveyID).success(callback)
+
+
+    	}
+    	obj.upvote= function(surveyID, index, callback){
+    		var JSONpackage= {optionIndex: index};
+    		$http.put('/surveys/' + surveyID, JSONpackage).success(callback);
+    	}
+    	return obj;
+
+    })
+    //create controller
+
+    myApp.controller('surveyController', function($scope, surveyFactory, userFactory, $routeParams){
+    	//this function is the callback function for our index method in factory
+    	//bind a logged in user into our $scope
+    	$scope.loggedInUser= userFactory.loggedInUser; 
+    	function getAll(){
+            surveyFactory.index(function(surveys){
+	    		$scope.surveys=surveys; 
+	    		console.log($scope.surveys);
+    		})
+    	}	
+    	getAll();
+    	$scope.destroy= function(surveyID){
+    		console.log(surveyID);
+    		surveyFactory.destroy(surveyID, getAll);
+    	}
+    	$scope.create= function(){
+    		$scope.survey.userID= userFactory.loggedInUser._id; 
+    		surveyFactory.create($scope.survey); 
+    	}
+    	surveyFactory.show($routeParams.id, function(survey){
+    		$scope.survey= survey; 
+
+    	})
+    	$scope.upvote = function(surveyID, index){
+    		surveyFactory.upvote(surveyID, index, function(){
+    			surveyFactory.show(surveyID, function(survey){
+    				$scope.survey= survey; 
+    			})
+
+    		})
+    	}
+    })
+
+    //******************************************//
+
+    </script>
+
+</head>
+<body ng-app='myApp'>
+	<div ng-view></div>
+
+</body>
+</html>
